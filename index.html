@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CRISP-DM 雙主題多元線性回歸與多演算法特徵篩選視覺化分析實驗室 (50_Startups + Boston Housing)">
+  <title>CRISP-DM 線性回歸與特徵篩選互動儀表板</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Top Header & Dataset Dropdown Selector -->
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-icon">📈</div>
+        <div class="brand-text">
+          <h1>CRISP-DM Analytics Lab</h1>
+          <p>多元線性回歸與多重特徵篩選演算法 (k=1~5) 綜合比較系統</p>
+        </div>
+      </div>
+
+      <div class="theme-selector-wrapper">
+        <span class="selector-label">📂 切換研究主題：</span>
+        <select id="datasetSelect" aria-label="切換資料集主題">
+          <option value="startups">🏢 主題一：50_Startups 新創獲利預測 (Profit)</option>
+          <option value="boston">🏡 主題二：Boston Housing 波士頓房價預測 (MEDV)</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- CRISP-DM 6 階段流程導覽看板 -->
+    <section class="crisp-stepper-card">
+      <div class="crisp-header">
+        <h2>🔄 CRISP-DM 跨產業資料探勘標準流程架構</h2>
+        <span class="chart-badge">全自動化特徵工程 Pipeline</span>
+      </div>
+      <div class="crisp-steps">
+        <div class="step-item" id="crisp-step-1">
+          <div class="step-number">Phase 1</div>
+          <div class="step-title">商業理解</div>
+          <div class="step-desc">定義獲利或估值預測指標與投資決策準則。</div>
+        </div>
+        <div class="step-item" id="crisp-step-2">
+          <div class="step-number">Phase 2</div>
+          <div class="step-title">資料理解</div>
+          <div class="step-desc">探索性分析 (EDA)、相關性分析與統計分布。</div>
+        </div>
+        <div class="step-item" id="crisp-step-3">
+          <div class="step-number">Phase 3</div>
+          <div class="step-title">資料準備</div>
+          <div class="step-desc">虛擬變數編碼、標準化與 80/20 訓練測試拆分。</div>
+        </div>
+        <div class="step-item active" id="crisp-step-4">
+          <div class="step-number">Phase 4</div>
+          <div class="step-title">模型建立與特徵篩選</div>
+          <div class="step-desc">窮舉最佳子集、逐步回歸、Lasso/Ridge 等 6 大法。</div>
+        </div>
+        <div class="step-item" id="crisp-step-5">
+          <div class="step-number">Phase 5</div>
+          <div class="step-title">模型評估與診斷</div>
+          <div class="step-desc">R²、MSE、RMSE、MAE、AIC/BIC 與殘差診斷。</div>
+        </div>
+        <div class="step-item" id="crisp-step-6">
+          <div class="step-number">Phase 6</div>
+          <div class="step-title">部署與即時預測</div>
+          <div class="step-desc">封裝回歸模型並提供互動式模擬試算器。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI Metrics Summary Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card" style="--card-accent: #6366f1;">
+        <div class="kpi-title">預測目標變數</div>
+        <div class="kpi-value" id="kpiTarget">Profit</div>
+        <div class="kpi-sub" id="kpiSamples">載入中...</div>
+      </div>
+
+      <div class="kpi-card" style="--card-accent: #10b981;">
+        <div class="kpi-title">測試集 判定係數 R²</div>
+        <div class="kpi-value" id="kpiR2">-</div>
+        <div class="kpi-sub">獨立測試集最高泛化解釋力</div>
+      </div>
+
+      <div class="kpi-card" style="--card-accent: #f59e0b;">
+        <div class="kpi-title">測試集 均方誤差 MSE</div>
+        <div class="kpi-value" id="kpiMSE">-</div>
+        <div class="kpi-sub">Mean Squared Error (愈低愈優)</div>
+      </div>
+
+      <div class="kpi-card" style="--card-accent: #f43f5e;">
+        <div class="kpi-title">測試集 均方根誤差 RMSE</div>
+        <div class="kpi-value" id="kpiRMSE">-</div>
+        <div class="kpi-sub">預測值標準離散誤差幅度</div>
+      </div>
+
+      <div class="kpi-card" style="--card-accent: #06b6d4;">
+        <div class="kpi-title">測試集 平均絕對誤差 MAE</div>
+        <div class="kpi-value" id="kpiMAE">-</div>
+        <div class="kpi-sub">Mean Absolute Error (實際金額差)</div>
+      </div>
+
+      <div class="kpi-card" style="--card-accent: #a855f7;">
+        <div class="kpi-title">最佳特徵數量 / 關鍵變數</div>
+        <div class="kpi-value" id="kpiOptimalK">k = -</div>
+        <div class="kpi-sub" id="kpiTopFeature">核心貢獻因子</div>
+      </div>
+    </section>
+
+    <!-- Top Visual Charts Section (上面要有圖) -->
+    <h2 class="section-title">📊 核心特徵篩選與模型診斷圖表</h2>
+    <section class="charts-grid">
+      <!-- 圖 1: 特徵數量 vs. 解釋力曲線 -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3>圖 1: 最佳子集法 解釋力隨特徵數變化曲線 (k=1~5)</h3>
+            <p>比較 R² 與考慮自由度懲罰後的調整後 Adj R²</p>
+          </div>
+          <span class="chart-badge">訓練集指標</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="chartCriteria"></canvas>
+        </div>
+      </div>
+
+      <!-- 圖 2: 測試集誤差變化曲線 -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3>圖 2: 測試集 RMSE 與 MAE 誤差收斂曲線</h3>
+            <p>觀察特徵數增加是否引發過擬合 (Overfitting)</p>
+          </div>
+          <span class="chart-badge">泛化誤差</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="chartErrors"></canvas>
+        </div>
+      </div>
+
+      <!-- 圖 3: 真實值 vs. 預測值 散佈圖 -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3>圖 3: 最佳模型 測試集預測值 vs. 真實值散佈圖</h3>
+            <p>點越貼近紅色虛線 (y = x) 代表擬合預測精度越高</p>
+          </div>
+          <span class="chart-badge">擬合精度</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="chartScatter"></canvas>
+        </div>
+      </div>
+
+      <!-- 圖 4: Pearson 相關係數排名圖 -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3>圖 4: 各自變數與目標變數之 Pearson 相關係數排名</h3>
+            <p>藍色代表正相關，紅色代表負相關</p>
+          </div>
+          <span class="chart-badge">特徵重要性</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="chartCorr"></canvas>
+        </div>
+      </div>
+
+      <!-- 圖 5: 6 大演算法測試集 R2 對比圖 -->
+      <div class="chart-card full-width">
+        <div class="chart-header">
+          <div>
+            <h3>圖 5: 6 大特徵篩選演算法在最佳特徵數下的測試集 R² 橫向對照</h3>
+            <p>比較最佳子集、前向逐步、後向淘汰、Lasso、Ridge、相關係數選取法之預測穩定度</p>
+          </div>
+          <span class="chart-badge">演算法競賽</span>
+        </div>
+        <div class="chart-canvas-container" style="height: 280px;">
+          <canvas id="chartAlgo"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data & Tables Section (還有數據等等的) -->
+    <h2 class="section-title">📋 完整統計評估數據矩陣 (支援分項頁籤檢視)</h2>
+    <section class="data-card">
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-target="tab-subsets">特徵子集清單 (k=1~5)</button>
+        <button class="tab-btn" data-target="tab-best-details">最佳子集詳細統計表</button>
+        <button class="tab-btn" data-target="tab-r2">測試集 R² 評估表</button>
+        <button class="tab-btn" data-target="tab-mse">測試集 MSE 均方誤差</button>
+        <button class="tab-btn" data-target="tab-rmse">測試集 RMSE 均方根誤差</button>
+        <button class="tab-btn" data-target="tab-mae">測試集 MAE 平均絕對誤差</button>
+      </div>
+
+      <!-- Tab 1: 特徵子集清單 -->
+      <div class="tab-pane" id="tab-subsets" style="display: block;">
+        <div class="table-responsive">
+          <table class="data-table" id="tableSubsets">
+            <thead>
+              <tr>
+                <th>特徵數 k</th>
+                <th>最佳子集 (Best Subset)</th>
+                <th>前向逐步 (Forward)</th>
+                <th>後向淘汰 (Backward)</th>
+                <th>Lasso (L1 懲罰)</th>
+                <th>Ridge (L2 權重)</th>
+                <th>相關係數 (Correlation)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 2: 最佳子集詳細指標表 -->
+      <div class="tab-pane" id="tab-best-details" style="display: none;">
+        <div class="table-responsive">
+          <table class="data-table" id="tableBestSubsetDetails">
+            <thead>
+              <tr>
+                <th>特徵數 k</th>
+                <th>最佳特徵組合</th>
+                <th>訓練集 R²</th>
+                <th>調整後 Adj R²</th>
+                <th>訓練集 MSE</th>
+                <th>訓練集 RMSE</th>
+                <th>訓練集 MAE</th>
+                <th>AIC</th>
+                <th>BIC</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 3: R2 矩陣 -->
+      <div class="tab-pane" id="tab-r2" style="display: none;">
+        <div class="table-responsive">
+          <table class="data-table" id="tablePivotR2">
+            <thead>
+              <tr>
+                <th>特徵數 k</th>
+                <th>最佳子集</th>
+                <th>前向逐步</th>
+                <th>後向淘汰</th>
+                <th>Lasso (L1)</th>
+                <th>Ridge (L2)</th>
+                <th>相關係數法</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 4: MSE 矩陣 -->
+      <div class="tab-pane" id="tab-mse" style="display: none;">
+        <div class="table-responsive">
+          <table class="data-table" id="tablePivotMSE">
+            <thead>
+              <tr>
+                <th>特徵數 k</th>
+                <th>最佳子集</th>
+                <th>前向逐步</th>
+                <th>後向淘汰</th>
+                <th>Lasso (L1)</th>
+                <th>Ridge (L2)</th>
+                <th>相關係數法</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 5: RMSE 矩陣 -->
+      <div class="tab-pane" id="tab-rmse" style="display: none;">
+        <div class="table-responsive">
+          <table class="data-table" id="tablePivotRMSE">
+            <thead>
+              <tr>
+                <th>特徵數 k</th>
+                <th>最佳子集</th>
+                <th>前向逐步</th>
+                <th>後向淘汰</th>
+                <th>Lasso (L1)</th>
+                <th>Ridge (L2)</th>
+                <th>相關係數法</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 6: MAE 矩陣 -->
+      <div class="tab-pane" id="tab-mae" style="display: none;">
+        <div class="table-responsive">
+          <table class="data-table" id="tablePivotMAE">
+            <thead>
+              <tr>
+                <th>特徵數 k</th>
+                <th>最佳子集</th>
+                <th>前向逐步</th>
+                <th>後向淘汰</th>
+                <th>Lasso (L1)</th>
+                <th>Ridge (L2)</th>
+                <th>相關係數法</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Prediction Simulator (即時互動試算器) -->
+    <h2 class="section-title">🎛️ 即時回歸預測模擬器 (Simulation Sandbox)</h2>
+    <section class="simulator-card">
+      <div class="sim-header">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">
+          滑動下方關鍵特徵滑桿，即時帶入該資料集最佳多元線性回歸方程式計算預估值：
+        </p>
+      </div>
+
+      <div class="sim-grid">
+        <div class="sim-inputs" id="simInputsContainer">
+          <!-- 動態生成特徵滑桿 -->
+        </div>
+
+        <div class="sim-output-box">
+          <div class="sim-output-title">即時預估模型產出 (Estimated Output)</div>
+          <div class="sim-output-value" id="simOutputValue">$0</div>
+          <div class="sim-formula-box" id="simFormula">y = ...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GitHub Ready Instructions & Footer -->
+    <footer class="app-footer">
+      <p>🚀 本專案已完全相容 <strong>GitHub Pages</strong> 與靜態主機部署，雙擊 <code>index.html</code> 即可於離線環境完整預覽。</p>
+      <p style="margin-top: 8px;">
+        原始資料集：<a href="50_Startups.csv" target="_blank">50_Startups.csv</a> | 
+        <a href="boston_housing.csv" target="_blank">boston_housing.csv</a> | 
+        核心運算腳本：<a href="process_both_datasets.py" target="_blank">process_both_datasets.py</a>
+      </p>
+    </footer>
+  </div>
+
+  <!-- 資料與應用程式腳本 -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
